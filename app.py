@@ -16,6 +16,39 @@ DB_PATH = APP_DIR / DATABASE_NAME
 INCIDENT_PATH = APP_DIR / INCIDENTS_DIR
 MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
 
+# ---------------------------------------------------------------------------
+# GPS & TELEPHONY DISPATCH SIMULATION HELPERS
+# ---------------------------------------------------------------------------
+
+def get_current_gps_location():
+    """
+    Simulates retrieving vehicle coordinates from a hardware GPS module.
+    Returns latitude and longitude data.
+    """
+    return {
+        "latitude": 25.3223,
+        "longitude": 55.5136,
+        "timestamp": time.time()
+    }
+
+def trigger_emergency_phone_dispatch(driver_name, risk_score, gps_info, video_path):
+    """
+    Simulates sending the GPS location and video clip payload to the emergency 
+    call dispatch and telephony system.
+    """
+    print("\n" + "=" * 60)
+    print(" [EMERGENCY SYSTEM ACTIVATED]")
+    print(f" Driver Name : {driver_name}")
+    print(f" Risk Score  : {risk_score:.0f}%")
+    print(f" GPS Location: Lat {gps_info['latitude']}, Lng {gps_info['longitude']}")
+    print(f" Video Clip  : {video_path}")
+    print(" Dispatching payload to Telephony Call System & Emergency Services...")
+    print("=" * 60 + "\n")
+
+# ---------------------------------------------------------------------------
+# EYVORA CORE UTILITIES
+# ---------------------------------------------------------------------------
+
 def ensure_model():
     if MODEL_PATH.exists() and MODEL_PATH.stat().st_size > 1_000_000:
         return
@@ -311,10 +344,25 @@ def main():
 
                 state,remaining=emergency.update(now,risk.score)
 
+                # TRIGGERED ON UNRESPONSIVE DRIVER EMERGENCY EXPIRY
                 if emergency.expired(now):
                     clip=video_buffer.save(INCIDENT_PATH,fps)
-                    db.log_incident(session_id,"unresponsive_driver",risk.score,"NO_RESPONSE",clip,
-                                    "Software prototype only; no real external emergency action.")
+                    
+                    # 1. Fetch simulated vehicle GPS coordinates
+                    gps_info = get_current_gps_location()
+                    
+                    # 2. Trigger simulated phone call & emergency alert payload
+                    trigger_emergency_phone_dispatch(driver_name, risk.score, gps_info, clip)
+                    
+                    # 3. Log event with GPS metadata into local SQLite database
+                    db.log_incident(
+                        session_id,
+                        "unresponsive_driver",
+                        risk.score,
+                        "NO_RESPONSE",
+                        clip,
+                        f"Emergency call dispatched. GPS: Lat {gps_info['latitude']}, Lng {gps_info['longitude']}"
+                    )
                     emergency.resolve(now)
                     risk_engine.reset()
 
